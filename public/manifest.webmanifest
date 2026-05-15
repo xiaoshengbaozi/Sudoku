@@ -1,7 +1,7 @@
 {
-  "name": "Sudoku Vibe",
-  "short_name": "Sudoku",
-  "description": "A mobile-first Sudoku PWA.",
+  "name": "数独",
+  "short_name": "数独",
+  "description": "一款移动优先的数独游戏。",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0d0d10",

@@ -11,9 +11,9 @@ type CellCoord = { row: number; col: number };
 
 const difficulties: Difficulty[] = ["easy", "medium", "hard"];
 const difficultyLabel: Record<Difficulty, string> = {
-  easy: "Easy",
-  medium: "Medium",
-  hard: "Hard",
+  easy: "简单",
+  medium: "中等",
+  hard: "困难",
 };
 
 export function App() {
@@ -72,13 +72,13 @@ export function App() {
         <div className="rounded-[2rem] bg-white/[0.06] p-4 shadow-glow ring-1 ring-white/[0.08] backdrop-blur">
           <div className="mb-4 flex items-end justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-zinc-400">Daily puzzle</p>
-              <h1 className="text-5xl font-semibold leading-none tracking-normal">Sudoku</h1>
+              <p className="text-sm font-medium text-zinc-400">每日数独</p>
+              <h1 className="text-5xl font-semibold leading-none tracking-normal">数独</h1>
             </div>
             <button
               type="button"
               onClick={() => startNewGame()}
-              aria-label="New game"
+              aria-label="新游戏"
               className="grid h-12 w-12 place-items-center rounded-full bg-zinc-50 text-zinc-950 shadow-lg shadow-black/25 transition active:scale-95"
             >
               <RotateCcw size={20} strokeWidth={2.5} />
@@ -126,19 +126,19 @@ function Header() {
           <Crown size={22} fill="currentColor" />
         </div>
         <div className="leading-tight">
-          <p className="text-lg font-bold">Ready</p>
-          <p className="text-xs font-medium text-zinc-500">Mobile PWA</p>
+          <p className="text-lg font-bold">准备开始</p>
+          <p className="text-xs font-medium text-zinc-500">移动端应用</p>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        <IconButton label="Stats">
+        <IconButton label="统计">
           <BarChart3 size={20} />
         </IconButton>
-        <IconButton label="Achievements">
+        <IconButton label="成就">
           <Trophy size={20} />
         </IconButton>
-        <IconButton label="Settings">
+        <IconButton label="设置">
           <Settings2 size={20} />
         </IconButton>
       </div>
