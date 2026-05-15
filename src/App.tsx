@@ -1,11 +1,22 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, Check, Crown, Eraser, Moon, Pencil, RotateCcw, Settings2, Sun, Trophy } from "lucide-react";
+import { BarChart3, Check, Crown, Eraser, Moon, Pencil, RotateCcw, Settings2, Sun, Trophy, X } from "lucide-react";
 import {
   type Board,
   type Difficulty,
   generateSudokuPuzzle,
   validateMove,
 } from "./sudoku";
+import {
+  type Achievement,
+  type AchievementMap,
+  type GameStats,
+  ACHIEVEMENTS,
+  checkAchievements,
+  loadAchievements,
+  loadStats,
+  saveAchievements,
+  saveStats,
+} from "./storage";
 
 type CellCoord = { row: number; col: number };
 type Theme = "dark" | "light";
@@ -17,13 +28,15 @@ type CompletedUnitBurst = {
 };
 
 const ENERGY_MAX = 100;
-const ENERGY_GAIN = 25;
+const ENERGY_GAIN = 10;
 
-const difficulties: Difficulty[] = ["easy", "medium", "hard"];
+const difficulties: Difficulty[] = ["easy", "medium", "hard", "expert", "master"];
 const difficultyLabel: Record<Difficulty, string> = {
   easy: "简单",
   medium: "中等",
   hard: "困难",
+  expert: "专家",
+  master: "大师",
 };
 
 function createEmptyNotes(): number[][][] {
@@ -59,6 +72,14 @@ export function App() {
   const [isComplete, setIsComplete] = useState(false);
   const [victoryDismissed, setVictoryDismissed] = useState(false);
 
+  // Stats & achievements
+  const [maxCombo, setMaxCombo] = useState(0);
+  const [stats, setStats] = useState<GameStats>(loadStats);
+  const [achievementMap, setAchievementMap] = useState<AchievementMap>(loadAchievements);
+  const [newAchievement, setNewAchievement] = useState<Achievement | null>(null);
+  const [showStats, setShowStats] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
+
   useEffect(() => {
     setBoard(puzzle.puzzle);
     setSelected(null);
@@ -73,9 +94,11 @@ export function App() {
     setBursts([]);
     // Reset new states
     setErrorCount(0);
+    setMaxCombo(0);
     setNotes(createEmptyNotes());
     setIsComplete(false);
     setVictoryDismissed(false);
+    setNewAchievement(null);
   }, [puzzle]);
 
   useEffect(() => {
@@ -85,6 +108,33 @@ export function App() {
 
   const selectedValue = selected ? board[selected.row][selected.col] : 0;
   const focusValue = selectedValue === 5 ? 5 : 0;
+
+  const completedBoxes = useMemo(() => {
+    const result: boolean[][] = Array.from({ length: 3 }, () => Array.from({ length: 3 }, () => false));
+    for (let br = 0; br < 3; br += 1) {
+      for (let bc = 0; bc < 3; bc += 1) {
+        let complete = true;
+        for (let r = br * 3; r < br * 3 + 3 && complete; r += 1) {
+          for (let c = bc * 3; c < bc * 3 + 3; c += 1) {
+            if (board[r][c] === 0) { complete = false; break; }
+          }
+        }
+        result[br][bc] = complete;
+      }
+    }
+    return result;
+  }, [board]);
+
+  const numberCounts = useMemo(() => {
+    const counts = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    for (let r = 0; r < 9; r += 1) {
+      for (let c = 0; c < 9; c += 1) {
+        const v = board[r][c];
+        if (v >= 1 && v <= 9) counts[v - 1] += 1;
+      }
+    }
+    return counts;
+  }, [board]);
 
   function startNewGame(nextDifficulty = difficulty) {
     setDifficulty(nextDifficulty);
@@ -189,6 +239,7 @@ export function App() {
 
     lastCorrectAt.current = now;
     setCombo(nextCombo);
+    if (nextCombo > maxCombo) setMaxCombo(nextCombo);
     if (energyReady && nextAssistedCells.length > 0) {
       setEnergy(ENERGY_MAX);
       window.setTimeout(() => setEnergy(0), 520);
@@ -221,6 +272,38 @@ export function App() {
     if (checkComplete(nextBoard)) {
       setIsComplete(true);
       setVictoryDismissed(false);
+
+      // Save stats and check achievements
+      setStats((prev) => {
+        const updated: GameStats = {
+          ...prev,
+          totalGames: prev.totalGames + 1,
+          totalWins: prev.totalWins + 1,
+          winsByDifficulty: {
+            ...prev.winsByDifficulty,
+            [difficulty]: prev.winsByDifficulty[difficulty] + 1,
+          },
+          totalMistakes: prev.totalMistakes + errorCount,
+          totalScore: prev.totalScore + score,
+          bestScore: Math.max(prev.bestScore, score),
+          bestCombo: Math.max(prev.bestCombo, maxCombo),
+          perfectGames: prev.perfectGames + (errorCount === 0 ? 1 : 0),
+        };
+        saveStats(updated);
+
+        setAchievementMap((achMap) => {
+          const session = { difficulty, score, errors: errorCount, maxCombo };
+          const newlyUnlocked = checkAchievements(achMap, updated, session);
+          if (newlyUnlocked.length > 0) {
+            saveAchievements(achMap);
+            const ach = ACHIEVEMENTS.find((a) => a.id === newlyUnlocked[newlyUnlocked.length - 1]);
+            if (ach) setNewAchievement(ach);
+          }
+          return { ...achMap };
+        });
+
+        return updated;
+      });
     }
 
     setNotes(nextNotes);
@@ -236,7 +319,12 @@ export function App() {
   return (
     <main className="safe-shell app-shell flex min-h-screen items-center justify-center px-4">
       <section className="flex w-full max-w-[430px] flex-col gap-5">
-        <Header theme={theme} onThemeChange={setTheme} />
+        <Header
+          theme={theme}
+          onThemeChange={setTheme}
+          onOpenStats={() => setShowStats(true)}
+          onOpenAchievements={() => setShowAchievements(true)}
+        />
 
         <div className={`game-panel rounded-[2rem] p-4 shadow-glow backdrop-blur ${boardShake ? "board-shake" : ""}`}>
           <div className="mb-4 flex items-end justify-between gap-3">
@@ -258,7 +346,7 @@ export function App() {
             </div>
           </div>
 
-          <div className="difficulty-tabs mb-4 grid grid-cols-3 gap-2 rounded-full p-1">
+          <div className="difficulty-tabs mb-4 grid grid-cols-5 gap-1.5 rounded-full p-1">
             {difficulties.map((item) => (
               <button
                 key={item}
@@ -287,6 +375,7 @@ export function App() {
             bursts={bursts}
             notes={notes}
             notesMode={notesMode}
+            completedBoxes={completedBoxes}
             onSelect={selectCell}
           />
         </div>
@@ -296,7 +385,7 @@ export function App() {
           onToggleNotes={() => setNotesMode((v) => !v)}
           onErase={eraseCell}
         />
-        <NumberPad onPress={playNumber} notesMode={notesMode} />
+        <NumberPad onPress={playNumber} notesMode={notesMode} numberCounts={numberCounts} />
 
         {isComplete && !victoryDismissed ? (
           <VictoryOverlay
@@ -305,6 +394,27 @@ export function App() {
             difficulty={difficultyLabel[difficulty]}
             onNewGame={() => startNewGame()}
             onDismiss={() => setVictoryDismissed(true)}
+          />
+        ) : null}
+
+        {showStats ? (
+          <StatsModal
+            stats={stats}
+            onClose={() => setShowStats(false)}
+          />
+        ) : null}
+
+        {showAchievements ? (
+          <AchievementsModal
+            achievements={achievementMap}
+            onClose={() => setShowAchievements(false)}
+          />
+        ) : null}
+
+        {newAchievement ? (
+          <AchievementToast
+            achievement={newAchievement}
+            onDone={() => setNewAchievement(null)}
           />
         ) : null}
       </section>
@@ -444,7 +554,17 @@ function ScoreBadge({ score, combo }: { score: number; combo: number }) {
   );
 }
 
-function Header({ theme, onThemeChange }: { theme: Theme; onThemeChange: (theme: Theme) => void }) {
+function Header({
+  theme,
+  onThemeChange,
+  onOpenStats,
+  onOpenAchievements,
+}: {
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
+  onOpenStats: () => void;
+  onOpenAchievements: () => void;
+}) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
@@ -460,10 +580,10 @@ function Header({ theme, onThemeChange }: { theme: Theme; onThemeChange: (theme:
       </div>
 
       <div className="flex items-center gap-2">
-        <IconButton label="统计">
+        <IconButton label="统计" onClick={onOpenStats}>
           <BarChart3 size={20} />
         </IconButton>
-        <IconButton label="成就">
+        <IconButton label="成就" onClick={onOpenAchievements}>
           <Trophy size={20} />
         </IconButton>
         <IconButton
@@ -567,6 +687,7 @@ function SudokuBoard({
   bursts,
   notes,
   notesMode,
+  completedBoxes,
   onSelect,
 }: {
   board: Board;
@@ -580,6 +701,7 @@ function SudokuBoard({
   bursts: CompletedUnitBurst[];
   notes: number[][][];
   notesMode: boolean;
+  completedBoxes: boolean[][];
   onSelect: (row: number, col: number) => void;
 }) {
   return (
@@ -604,6 +726,7 @@ function SudokuBoard({
           const cellNotes = notes[rowIndex][colIndex];
           const showNotes = value === 0 && cellNotes.length > 0;
           const isNotesModeHighlight = notesMode && isSelected;
+          const isInCompletedBox = completedBoxes[Math.floor(rowIndex / 3)][Math.floor(colIndex / 3)];
 
           return (
             <button
@@ -624,6 +747,7 @@ function SudokuBoard({
                 isSelected && !isNotesModeHighlight ? "selected-cell" : "",
                 isNotesModeHighlight ? "notes-mode-cell" : "",
                 isMistake ? "cell-flash" : "",
+                isInCompletedBox && !isSelected ? "completed-box-cell" : "",
               ].join(" ")}
             >
               {showNotes ? (
@@ -688,21 +812,35 @@ function Toolbar({
   );
 }
 
-function NumberPad({ onPress, notesMode }: { onPress: (value: number) => void; notesMode: boolean }) {
+function NumberPad({ onPress, notesMode, numberCounts }: { onPress: (value: number) => void; notesMode: boolean; numberCounts: number[] }) {
   return (
     <div className={`number-pad grid grid-cols-9 gap-2 rounded-[1.7rem] p-2 shadow-glow ${notesMode ? "number-pad-notes" : ""}`}>
-      {Array.from({ length: 9 }, (_, index) => index + 1).map((value) => (
-        <button
-          key={value}
-          type="button"
-          onClick={() => onPress(value)}
-          className={`number-button aspect-square rounded-2xl text-xl font-black shadow-lg transition active:scale-90 ${
-            notesMode ? "number-button-notes" : ""
-          }`}
-        >
-          {value}
-        </button>
-      ))}
+      {Array.from({ length: 9 }, (_, index) => index + 1).map((value) => {
+        const count = numberCounts[value - 1];
+        const isDone = count >= 9;
+        const remaining = 9 - count;
+
+        return (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onPress(value)}
+            disabled={isDone}
+            className={`number-button aspect-square rounded-2xl text-xl font-black shadow-lg transition active:scale-90 ${
+              notesMode ? "number-button-notes" : ""
+            } ${isDone ? "number-button-done" : ""}`}
+          >
+            {isDone ? (
+              <Check size={20} strokeWidth={3} />
+            ) : (
+              <span className="flex flex-col items-center leading-none">
+                <span className="number-main">{value}</span>
+                <span className="number-remaining">{remaining}</span>
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -751,6 +889,145 @@ function VictoryOverlay({
           >
             再来一局
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatsModal({ stats, onClose }: { stats: GameStats; onClose: () => void }) {
+  const winRate = stats.totalGames > 0
+    ? Math.round((stats.totalWins / stats.totalGames) * 100)
+    : 0;
+
+  return (
+    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="modal-card w-full max-w-[360px] rounded-[2rem] p-6 shadow-glow animate-victory-pop">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-black">📊 游戏统计</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-9 w-9 place-items-center rounded-full hover:bg-white/10 transition"
+            aria-label="关闭"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <StatItem label="总局数" value={stats.totalGames} />
+          <StatItem label="胜场" value={stats.totalWins} />
+          <StatItem label="胜率" value={`${winRate}%`} />
+          <StatItem label="最佳分数" value={stats.bestScore} />
+          <StatItem label="最高连击" value={`x${stats.bestCombo}`} />
+          <StatItem label="完美局" value={stats.perfectGames} />
+        </div>
+
+        <p className="text-xs font-semibold muted-text mb-3">各难度通关</p>
+        <div className="grid grid-cols-5 gap-2">
+          {(["easy", "medium", "hard", "expert", "master"] as Difficulty[]).map((d) => (
+            <div key={d} className="modal-stat-chip rounded-xl p-2 text-center">
+              <p className="text-[0.6rem] font-semibold muted-text leading-tight">
+                {({ easy: "简单", medium: "中等", hard: "困难", expert: "专家", master: "大师" } as Record<string, string>)[d]}
+              </p>
+              <p className="text-sm font-black">{stats.winsByDifficulty[d]}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatItem({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="modal-stat-chip rounded-2xl p-3 text-center">
+      <p className="text-[0.6rem] font-semibold muted-text leading-tight">{label}</p>
+      <p className="text-base font-black">{value}</p>
+    </div>
+  );
+}
+
+function AchievementsModal({
+  achievements,
+  onClose,
+}: {
+  achievements: AchievementMap;
+  onClose: () => void;
+}) {
+  const unlockedCount = ACHIEVEMENTS.filter((a) => achievements[a.id]?.unlocked).length;
+
+  return (
+    <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="modal-card w-full max-w-[360px] rounded-[2rem] p-6 shadow-glow animate-victory-pop max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between mb-3 shrink-0">
+          <div>
+            <h2 className="text-xl font-black">🏆 成就</h2>
+            <p className="text-xs muted-text font-medium">{unlockedCount}/{ACHIEVEMENTS.length} 已解锁</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-9 w-9 place-items-center rounded-full hover:bg-white/10 transition"
+            aria-label="关闭"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-2 overflow-y-auto">
+          {ACHIEVEMENTS.map((ach) => {
+            const state = achievements[ach.id];
+            const isUnlocked = state?.unlocked ?? false;
+            return (
+              <div
+                key={ach.id}
+                className={`achievement-item flex items-center gap-3 rounded-2xl p-3 transition ${
+                  isUnlocked ? "" : "achievement-locked"
+                }`}
+              >
+                <span className={`text-2xl shrink-0 ${isUnlocked ? "" : "grayscale opacity-30"}`}>
+                  {ach.icon}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-bold ${isUnlocked ? "" : "muted-text"}`}>{ach.title}</p>
+                  <p className="text-xs muted-text truncate">{ach.description}</p>
+                </div>
+                {isUnlocked ? (
+                  <Check size={18} className="text-green-400 shrink-0" strokeWidth={3} />
+                ) : (
+                  <span className="text-xs muted-text shrink-0">🔒</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AchievementToast({
+  achievement,
+  onDone,
+}: {
+  achievement: Achievement;
+  onDone: () => void;
+}) {
+  useEffect(() => {
+    const timer = window.setTimeout(onDone, 2800);
+    return () => window.clearTimeout(timer);
+  }, [onDone]);
+
+  return (
+    <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 px-4 w-full max-w-[360px]">
+      <div className="achievement-toast flex items-center gap-3 rounded-2xl p-4 shadow-glow animate-victory-pop">
+        <span className="text-3xl">{achievement.icon}</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold muted-text">成就解锁!</p>
+          <p className="text-sm font-black">{achievement.title}</p>
+          <p className="text-xs muted-text">{achievement.description}</p>
         </div>
       </div>
     </div>

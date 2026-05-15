@@ -1,4 +1,4 @@
-export type Difficulty = "easy" | "medium" | "hard";
+export type Difficulty = "easy" | "medium" | "hard" | "expert" | "master";
 export type Board = number[][];
 
 const SIZE = 9;
@@ -9,6 +9,8 @@ const holesByDifficulty: Record<Difficulty, number> = {
   easy: 36,
   medium: 46,
   hard: 54,
+  expert: 59,
+  master: 63,
 };
 
 export interface SudokuPuzzle {
