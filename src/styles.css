@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  background: #0d0d10;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(255, 116, 82, 0.2), transparent 32rem),
+    linear-gradient(180deg, #17171d 0%, #0d0d10 42%, #070708 100%);
+}
+
+button {
+  font: inherit;
+}
+
+.safe-shell {
+  min-height: 100svh;
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.sudoku-board {
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  grid-template-rows: repeat(9, minmax(0, 1fr));
+}
+
+.cell-flash {
+  animation: cell-flash 420ms ease-in-out;
+}
+
+@keyframes cell-flash {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+  35%,
+  70% {
+    color: #fecaca;
+    background: rgba(127, 29, 29, 0.72);
+    box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.85), 0 0 28px rgba(248, 113, 113, 0.5);
+  }
+}
