@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { BarChart3, Crown, RotateCcw, Settings2, Trophy } from "lucide-react";
+import { BarChart3, Check, Crown, Moon, RotateCcw, Settings2, Sun, Trophy } from "lucide-react";
 import {
   type Board,
   type Difficulty,
@@ -8,6 +8,7 @@ import {
 } from "./sudoku";
 
 type CellCoord = { row: number; col: number };
+type Theme = "dark" | "light";
 
 const difficulties: Difficulty[] = ["easy", "medium", "hard"];
 const difficultyLabel: Record<Difficulty, string> = {
@@ -17,6 +18,10 @@ const difficultyLabel: Record<Difficulty, string> = {
 };
 
 export function App() {
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "dark";
+    return window.localStorage.getItem("sudoku-theme") === "light" ? "light" : "dark";
+  });
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [gameSeed, setGameSeed] = useState(0);
   const puzzle = useMemo(() => generateSudokuPuzzle(difficulty), [difficulty, gameSeed]);
@@ -29,6 +34,11 @@ export function App() {
     setSelected(null);
     setMistake(null);
   }, [puzzle]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("sudoku-theme", theme);
+  }, [theme]);
 
   const selectedValue = selected ? board[selected.row][selected.col] : 0;
 
@@ -65,36 +75,34 @@ export function App() {
   }
 
   return (
-    <main className="safe-shell flex min-h-screen items-center justify-center px-4 text-zinc-50">
+    <main className="safe-shell app-shell flex min-h-screen items-center justify-center px-4">
       <section className="flex w-full max-w-[430px] flex-col gap-5">
-        <Header />
+        <Header theme={theme} onThemeChange={setTheme} />
 
-        <div className="rounded-[2rem] bg-white/[0.06] p-4 shadow-glow ring-1 ring-white/[0.08] backdrop-blur">
+        <div className="game-panel rounded-[2rem] p-4 shadow-glow backdrop-blur">
           <div className="mb-4 flex items-end justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-zinc-400">每日数独</p>
+              <p className="muted-text text-sm font-medium">每日数独</p>
               <h1 className="text-5xl font-semibold leading-none tracking-normal">数独</h1>
             </div>
             <button
               type="button"
               onClick={() => startNewGame()}
               aria-label="新游戏"
-              className="grid h-12 w-12 place-items-center rounded-full bg-zinc-50 text-zinc-950 shadow-lg shadow-black/25 transition active:scale-95"
+              className="primary-icon-button grid h-12 w-12 place-items-center rounded-full shadow-lg transition active:scale-95"
             >
               <RotateCcw size={20} strokeWidth={2.5} />
             </button>
           </div>
 
-          <div className="mb-4 grid grid-cols-3 gap-2 rounded-full bg-black/30 p-1">
+          <div className="difficulty-tabs mb-4 grid grid-cols-3 gap-2 rounded-full p-1">
             {difficulties.map((item) => (
               <button
                 key={item}
                 type="button"
                 onClick={() => startNewGame(item)}
                 className={`h-10 rounded-full text-sm font-semibold transition ${
-                  item === difficulty
-                    ? "bg-[#ff6b4a] text-white shadow-lg shadow-[#ff6b4a]/25"
-                    : "text-zinc-400 active:bg-white/10"
+                  item === difficulty ? "active-difficulty" : "inactive-difficulty"
                 }`}
               >
                 {difficultyLabel[item]}
@@ -118,16 +126,18 @@ export function App() {
   );
 }
 
-function Header() {
+function Header({ theme, onThemeChange }: { theme: Theme; onThemeChange: (theme: Theme) => void }) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   return (
-    <div className="flex items-center justify-between px-1">
+    <div className="relative flex items-center justify-between px-1">
       <div className="flex items-center gap-3">
         <div className="grid h-12 w-12 place-items-center rounded-full bg-[#ff6b4a] text-white shadow-lg shadow-[#ff6b4a]/30">
           <Crown size={22} fill="currentColor" />
         </div>
         <div className="leading-tight">
           <p className="text-lg font-bold">准备开始</p>
-          <p className="text-xs font-medium text-zinc-500">移动端应用</p>
+          <p className="subtle-text text-xs font-medium">移动端应用</p>
         </div>
       </div>
 
@@ -138,23 +148,91 @@ function Header() {
         <IconButton label="成就">
           <Trophy size={20} />
         </IconButton>
-        <IconButton label="设置">
+        <IconButton
+          label={settingsOpen ? "关闭设置" : "打开设置"}
+          onClick={() => setSettingsOpen((value) => !value)}
+          pressed={settingsOpen}
+        >
           <Settings2 size={20} />
         </IconButton>
       </div>
+
+      {settingsOpen ? (
+        <div className="settings-menu absolute right-1 top-14 z-20 w-44 rounded-2xl p-2 shadow-glow">
+          <p className="muted-text px-3 pb-2 pt-1 text-xs font-semibold">显示模式</p>
+          <ThemeOption
+            active={theme === "dark"}
+            icon={<Moon size={17} />}
+            label="深色模式"
+            onClick={() => {
+              onThemeChange("dark");
+              setSettingsOpen(false);
+            }}
+          />
+          <ThemeOption
+            active={theme === "light"}
+            icon={<Sun size={17} />}
+            label="亮色模式"
+            onClick={() => {
+              onThemeChange("light");
+              setSettingsOpen(false);
+            }}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function IconButton({ label, children }: { label: string; children: ReactNode }) {
+function IconButton({
+  label,
+  children,
+  onClick,
+  pressed,
+}: {
+  label: string;
+  children: ReactNode;
+  onClick?: () => void;
+  pressed?: boolean;
+}) {
   return (
     <button
       type="button"
       aria-label={label}
+      aria-pressed={pressed}
       title={label}
-      className="grid h-11 w-11 place-items-center rounded-full bg-white/[0.08] text-zinc-200 ring-1 ring-white/[0.07] transition active:scale-95 active:bg-white/[0.14]"
+      onClick={onClick}
+      className="toolbar-button grid h-11 w-11 place-items-center rounded-full transition active:scale-95"
     >
       {children}
+    </button>
+  );
+}
+
+function ThemeOption({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`theme-option flex h-10 w-full items-center justify-between rounded-xl px-3 text-sm font-semibold transition ${
+        active ? "theme-option-active" : ""
+      }`}
+    >
+      <span className="flex items-center gap-2">
+        {icon}
+        {label}
+      </span>
+      {active ? <Check size={16} strokeWidth={2.5} /> : null}
     </button>
   );
 }
@@ -175,7 +253,7 @@ function SudokuBoard({
   onSelect: (row: number, col: number) => void;
 }) {
   return (
-    <div className="sudoku-board grid aspect-square overflow-hidden rounded-2xl border-2 border-zinc-100/90 bg-zinc-950">
+    <div className="sudoku-board grid aspect-square overflow-hidden rounded-2xl border-2">
       {board.map((row, rowIndex) =>
         row.map((value, colIndex) => {
           const isSelected = selected?.row === rowIndex && selected?.col === colIndex;
@@ -194,13 +272,13 @@ function SudokuBoard({
               type="button"
               onClick={() => onSelect(rowIndex, colIndex)}
               className={[
-                "relative grid min-h-0 min-w-0 place-items-center border-white/[0.08] text-[clamp(1.05rem,7vw,1.7rem)] font-semibold transition",
-                colIndex === 2 || colIndex === 5 ? "border-r-2 border-r-zinc-100/90" : "border-r",
-                rowIndex === 2 || rowIndex === 5 ? "border-b-2 border-b-zinc-100/90" : "border-b",
-                fixed[rowIndex][colIndex] ? "text-zinc-50" : "text-[#ffb199]",
-                isPeer ? "bg-white/[0.055]" : "bg-white/[0.025]",
-                isSameValue ? "bg-[#ff6b4a]/20" : "",
-                isSelected ? "z-10 bg-[#ff6b4a]/95 text-white shadow-danger" : "",
+                "sudoku-cell relative grid min-h-0 min-w-0 place-items-center text-[clamp(1.05rem,7vw,1.7rem)] font-semibold transition",
+                colIndex === 2 || colIndex === 5 ? "border-r-2" : "border-r",
+                rowIndex === 2 || rowIndex === 5 ? "border-b-2" : "border-b",
+                fixed[rowIndex][colIndex] ? "fixed-cell" : "player-cell",
+                isPeer ? "peer-cell" : "",
+                isSameValue ? "same-value-cell" : "",
+                isSelected ? "selected-cell z-10 shadow-danger" : "",
                 isMistake ? "cell-flash" : "",
               ].join(" ")}
             >
@@ -215,13 +293,13 @@ function SudokuBoard({
 
 function NumberPad({ onPress }: { onPress: (value: number) => void }) {
   return (
-    <div className="grid grid-cols-9 gap-2 rounded-[1.7rem] bg-white/[0.07] p-2 shadow-glow ring-1 ring-white/[0.08]">
+    <div className="number-pad grid grid-cols-9 gap-2 rounded-[1.7rem] p-2 shadow-glow">
       {Array.from({ length: 9 }, (_, index) => index + 1).map((value) => (
         <button
           key={value}
           type="button"
           onClick={() => onPress(value)}
-          className="aspect-square rounded-2xl bg-zinc-50 text-xl font-black text-zinc-950 shadow-lg shadow-black/25 transition active:scale-90 active:bg-[#ff6b4a] active:text-white"
+          className="number-button aspect-square rounded-2xl text-xl font-black shadow-lg transition active:scale-90"
         >
           {value}
         </button>
