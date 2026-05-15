@@ -27,6 +27,10 @@
   --cell-bg: rgba(255, 255, 255, 0.025);
   --cell-peer-bg: rgba(255, 255, 255, 0.055);
   --cell-same-bg: rgba(255, 107, 74, 0.2);
+  --focus-value-bg: rgba(255, 214, 102, 0.2);
+  --focus-value-ring: rgba(255, 214, 102, 0.72);
+  --focus-target-bg: rgba(255, 214, 102, 0.08);
+  --burst-glow: rgba(255, 244, 196, 0.8);
   --fixed-cell-text: #fafafa;
   --player-cell-text: #ffb199;
   --settings-bg: rgba(24, 24, 27, 0.96);
@@ -36,6 +40,16 @@
   --number-pad-bg: rgba(255, 255, 255, 0.07);
   --number-button-bg: #fafafa;
   --number-button-text: #09090b;
+  --score-bg: rgba(255, 255, 255, 0.08);
+  --score-ring: rgba(255, 255, 255, 0.1);
+  --combo-bg: #ff6b4a;
+  --combo-text: #ffffff;
+  --energy-bg: rgba(255, 255, 255, 0.07);
+  --energy-track: rgba(255, 255, 255, 0.1);
+  --energy-fill: linear-gradient(90deg, #34d399, #facc15, #ff6b4a);
+  --energy-glow: rgba(250, 204, 21, 0.38);
+  --assist-bg: rgba(52, 211, 153, 0.2);
+  --assist-ring: rgba(52, 211, 153, 0.82);
   background: #0d0d10;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -68,6 +82,10 @@
   --cell-bg: rgba(255, 255, 255, 0.86);
   --cell-peer-bg: rgba(255, 107, 74, 0.08);
   --cell-same-bg: rgba(255, 107, 74, 0.18);
+  --focus-value-bg: rgba(255, 193, 7, 0.2);
+  --focus-value-ring: rgba(217, 119, 6, 0.64);
+  --focus-target-bg: rgba(255, 193, 7, 0.12);
+  --burst-glow: rgba(255, 183, 77, 0.72);
   --fixed-cell-text: #18181b;
   --player-cell-text: #e24d2b;
   --settings-bg: rgba(255, 255, 255, 0.96);
@@ -77,6 +95,16 @@
   --number-pad-bg: rgba(255, 255, 255, 0.68);
   --number-button-bg: #18181b;
   --number-button-text: #ffffff;
+  --score-bg: rgba(255, 255, 255, 0.78);
+  --score-ring: rgba(15, 23, 42, 0.1);
+  --combo-bg: #18181b;
+  --combo-text: #ffffff;
+  --energy-bg: rgba(255, 255, 255, 0.74);
+  --energy-track: rgba(15, 23, 42, 0.1);
+  --energy-fill: linear-gradient(90deg, #059669, #eab308, #ff6b4a);
+  --energy-glow: rgba(234, 179, 8, 0.3);
+  --assist-bg: rgba(5, 150, 105, 0.16);
+  --assist-ring: rgba(5, 150, 105, 0.72);
   background: #f8fafc;
 }
 
@@ -137,6 +165,39 @@ button {
   color: var(--primary-button-text);
 }
 
+.score-badge {
+  background: var(--score-bg);
+  box-shadow: inset 0 0 0 1px var(--score-ring);
+}
+
+.combo-pop {
+  background: var(--combo-bg);
+  color: var(--combo-text);
+  box-shadow: 0 12px 28px rgba(255, 107, 74, 0.28);
+  animation: combo-pop 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.energy-meter {
+  background: var(--energy-bg);
+  box-shadow: inset 0 0 0 1px var(--score-ring);
+}
+
+.energy-meter-active {
+  animation: energy-release 760ms ease-out;
+}
+
+.energy-track {
+  background: var(--energy-track);
+}
+
+.energy-fill {
+  background: var(--energy-fill);
+  box-shadow: 0 0 22px var(--energy-glow);
+  transition: width 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .difficulty-tabs {
   background: var(--tabs-bg);
 }
@@ -165,6 +226,7 @@ button {
 .sudoku-cell {
   background: var(--cell-bg);
   border-color: var(--cell-border);
+  overflow: hidden;
 }
 
 .sudoku-cell.border-r-2 {
@@ -191,9 +253,51 @@ button {
   background: var(--cell-same-bg);
 }
 
+.focused-value-cell {
+  background: var(--focus-value-bg);
+  box-shadow: inset 0 0 0 2px var(--focus-value-ring), inset 0 0 18px rgba(255, 214, 102, 0.16);
+}
+
+.focus-target-cell {
+  animation: focus-breathe 1.8s ease-in-out infinite;
+}
+
+.focus-target-cell::before,
+.unit-burst-cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.focus-target-cell::before {
+  background: radial-gradient(circle, var(--focus-target-bg), transparent 62%);
+}
+
+.unit-burst-cell {
+  animation: unit-pop 620ms ease-out;
+}
+
+.unit-burst-cell::after {
+  background: linear-gradient(115deg, transparent 0%, transparent 35%, var(--burst-glow) 48%, transparent 62%, transparent 100%);
+  transform: translateX(-120%);
+  animation: unit-shimmer 780ms ease-out;
+}
+
+.assisted-cell {
+  animation: assist-fill 980ms ease-out;
+  background: var(--assist-bg);
+  box-shadow: inset 0 0 0 2px var(--assist-ring), inset 0 0 22px rgba(52, 211, 153, 0.22);
+}
+
 .selected-cell {
   background: rgba(255, 107, 74, 0.95);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.88), inset 0 0 18px rgba(255, 255, 255, 0.18);
   color: #ffffff;
+}
+
+.board-shake {
+  animation: board-shake 240ms ease-in-out;
 }
 
 .settings-menu {
@@ -243,4 +347,204 @@ button {
     background: rgba(127, 29, 29, 0.72);
     box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.85), 0 0 28px rgba(248, 113, 113, 0.5);
   }
+}
+
+@keyframes combo-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(0.4rem) scale(0.84);
+  }
+  42% {
+    opacity: 1;
+    transform: translateY(-0.15rem) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes energy-release {
+  0% {
+    box-shadow: inset 0 0 0 1px var(--score-ring), 0 0 0 rgba(250, 204, 21, 0);
+    transform: scale(1);
+  }
+  42% {
+    box-shadow: inset 0 0 0 1px var(--score-ring), 0 0 34px var(--energy-glow);
+    transform: scale(1.018);
+  }
+  100% {
+    box-shadow: inset 0 0 0 1px var(--score-ring), 0 0 0 rgba(250, 204, 21, 0);
+    transform: scale(1);
+  }
+}
+
+@keyframes assist-fill {
+  0% {
+    color: transparent;
+    transform: scale(0.86);
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+  36% {
+    color: #ffffff;
+    transform: scale(1);
+    box-shadow: inset 0 0 0 2px var(--assist-ring), inset 0 0 28px rgba(52, 211, 153, 0.34);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: inset 0 0 0 2px var(--assist-ring), inset 0 0 22px rgba(52, 211, 153, 0.22);
+  }
+}
+
+@keyframes board-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes focus-breathe {
+  0%,
+  100% {
+    background: var(--cell-bg);
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+  50% {
+    background: var(--focus-target-bg);
+    box-shadow: inset 0 0 0 1px rgba(255, 214, 102, 0.24), inset 0 0 18px rgba(255, 214, 102, 0.12);
+  }
+}
+
+@keyframes unit-pop {
+  0% {
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+  32% {
+    box-shadow: inset 0 0 0 2px var(--burst-glow), inset 0 0 20px rgba(255, 214, 102, 0.2);
+  }
+  100% {
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+}
+
+@keyframes unit-shimmer {
+  0% {
+    opacity: 0;
+    transform: translateX(-120%);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(120%);
+  }
+}
+
+/* === Error Badge === */
+.error-badge {
+  background: rgba(239, 68, 68, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.25);
+}
+:root[data-theme="light"] .error-badge {
+  background: rgba(239, 68, 68, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+
+/* === Toolbar === */
+.toolbar-action {
+  background: var(--primary-button-bg);
+  color: var(--primary-button-text);
+}
+.toolbar-action-ghost {
+  background: var(--icon-bg);
+  color: var(--icon-text);
+  box-shadow: inset 0 0 0 1px var(--icon-ring);
+}
+.toolbar-action-ghost:active {
+  background: var(--icon-bg-active);
+}
+
+/* === Notes Mode === */
+.notes-mode-active {
+  background: #ff6b4a;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(255, 107, 74, 0.25);
+}
+
+.notes-mode-cell {
+  background: rgba(255, 107, 74, 0.18);
+  box-shadow: inset 0 0 0 2px rgba(255, 107, 74, 0.55), inset 0 0 18px rgba(255, 107, 74, 0.1);
+}
+
+.number-pad-notes {
+  box-shadow: 0 0 0 2px rgba(255, 107, 74, 0.4), 0 0 0 1px var(--panel-ring), 0 24px 60px rgba(0, 0, 0, 0.18);
+}
+
+.number-button-notes {
+  opacity: 0.55;
+}
+
+/* === Candidate Notes Grid === */
+.notes-grid {
+  pointer-events: none;
+}
+.note-visible {
+  color: var(--player-cell-text);
+  opacity: 0.8;
+}
+.note-hidden {
+  opacity: 0;
+}
+:root[data-theme="light"] .note-visible {
+  color: #e24d2b;
+  opacity: 0.7;
+}
+
+/* === Victory Overlay === */
+.victory-overlay {
+  animation: overlay-fade-in 320ms ease-out;
+}
+.victory-card {
+  background: var(--settings-bg);
+  box-shadow: 0 0 0 1px var(--settings-ring), 0 32px 80px rgba(0, 0, 0, 0.35);
+}
+.victory-stat {
+  background: var(--score-bg);
+}
+
+@keyframes overlay-fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes victory-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) translateY(12px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-victory-pop {
+  animation: victory-pop 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
