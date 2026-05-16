@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, Check, Crown, Eraser, Moon, Pencil, RotateCcw, Settings2, Sun, Trophy, X } from "lucide-react";
+import { BarChart3, Check, Crown, Eraser, Lightbulb, Moon, Pencil, RotateCcw, Settings2, Sun, Trophy, X, Zap } from "lucide-react";
 import {
   type Board,
   type Difficulty,
@@ -77,6 +77,7 @@ export function App() {
   const [stats, setStats] = useState<GameStats>(loadStats);
   const [achievementMap, setAchievementMap] = useState<AchievementMap>(loadAchievements);
   const [newAchievement, setNewAchievement] = useState<Achievement | null>(null);
+  const [hintsRemaining, setHintsRemaining] = useState(3);
   const [showStats, setShowStats] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
 
@@ -99,6 +100,7 @@ export function App() {
     setIsComplete(false);
     setVictoryDismissed(false);
     setNewAchievement(null);
+    setHintsRemaining(3);
   }, [puzzle]);
 
   useEffect(() => {
@@ -161,6 +163,45 @@ export function App() {
       const nextBoard = board.map((r) => [...r]);
       nextBoard[row][col] = 0;
       setBoard(nextBoard);
+    }
+  }
+
+  function useHint() {
+    if (hintsRemaining <= 0) return;
+
+    // Prefer the selected cell if it's empty and not fixed
+    let target: CellCoord | null = null;
+    if (selected && board[selected.row][selected.col] === 0 && !puzzle.fixed[selected.row][selected.col]) {
+      target = selected;
+    } else {
+      // Find first empty non-fixed cell
+      for (let r = 0; r < 9 && !target; r += 1) {
+        for (let c = 0; c < 9 && !target; c += 1) {
+          if (board[r][c] === 0 && !puzzle.fixed[r][c]) {
+            target = { row: r, col: c };
+          }
+        }
+      }
+    }
+    if (!target) return;
+
+    setHintsRemaining((h) => h - 1);
+
+    // Clear notes and fill the correct answer
+    const nextNotes = notes.map((r) => r.map((c) => [...c]));
+    nextNotes[target.row][target.col] = [];
+
+    const nextBoard = board.map((r) => [...r]);
+    nextBoard[target.row][target.col] = puzzle.solution[target.row][target.col];
+
+    setNotes(nextNotes);
+    setBoard(nextBoard);
+    setSelected(target);
+
+    // Check completion after hint
+    if (checkComplete(nextBoard)) {
+      setIsComplete(true);
+      setVictoryDismissed(false);
     }
   }
 
@@ -382,8 +423,10 @@ export function App() {
 
         <Toolbar
           notesMode={notesMode}
+          hintsRemaining={hintsRemaining}
           onToggleNotes={() => setNotesMode((v) => !v)}
           onErase={eraseCell}
+          onHint={useHint}
         />
         <NumberPad onPress={playNumber} notesMode={notesMode} numberCounts={numberCounts} />
 
@@ -521,14 +564,42 @@ function playTone(kind: "correct" | "complete" | "combo" | "energy" | "mistake",
 }
 
 function EnergyBar({ value, active }: { value: number; active: boolean }) {
+  const segments = 10;
+  const filledSegments = Math.min(segments, Math.floor(value / (100 / segments)));
+  const partialFill = (value % (100 / segments)) / (100 / segments);
+  const isFull = filledSegments >= segments;
+
   return (
-    <div className={`energy-meter mb-4 rounded-2xl p-2 ${active ? "energy-meter-active" : ""}`}>
-      <div className="mb-1 flex items-center justify-between px-1 text-xs font-bold">
-        <span>能量</span>
-        <span>{value}%</span>
+    <div className={`energy-bar-wrapper mb-4 ${active ? "energy-bar-active" : ""}`}>
+      <div className="energy-bar-header">
+        <div className="energy-bar-label">
+          <Zap size={14} className="energy-bar-icon" fill="currentColor" />
+          <span className="energy-bar-title">能量</span>
+        </div>
+        <span className={`energy-bar-count ${isFull ? "energy-bar-full" : ""}`}>
+          {filledSegments}/{segments}
+        </span>
       </div>
-      <div className="energy-track h-2 overflow-hidden rounded-full">
-        <div className="energy-fill h-full rounded-full" style={{ width: `${value}%` }} />
+      <div className="energy-bar-track">
+        {Array.from({ length: segments }, (_, i) => {
+          let segmentState = "energy-segment-empty";
+          if (i < filledSegments) {
+            segmentState = isFull && active ? "energy-segment-burst" : "energy-segment-filled";
+          } else if (i === filledSegments && partialFill > 0) {
+            segmentState = "energy-segment-partial";
+          }
+
+          return (
+            <div key={i} className={`energy-segment ${segmentState}`}>
+              {i === filledSegments && partialFill > 0 ? (
+                <div
+                  className="energy-segment-fill-inner"
+                  style={{ width: `${partialFill * 100}%` }}
+                />
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -776,12 +847,16 @@ function SudokuBoard({
 
 function Toolbar({
   notesMode,
+  hintsRemaining,
   onToggleNotes,
   onErase,
+  onHint,
 }: {
   notesMode: boolean;
+  hintsRemaining: number;
   onToggleNotes: () => void;
   onErase: () => void;
+  onHint: () => void;
 }) {
   return (
     <div className="toolbar-row flex items-center justify-center gap-3">
@@ -808,13 +883,28 @@ function Toolbar({
         <Pencil size={18} strokeWidth={2.5} />
         <span className="text-sm font-semibold">笔记</span>
       </button>
+      <button
+        type="button"
+        onClick={onHint}
+        disabled={hintsRemaining <= 0}
+        aria-label="提示"
+        className={`toolbar-action flex h-11 items-center gap-2 rounded-full px-5 shadow-lg transition active:scale-95 ${
+          hintsRemaining <= 0 ? "hint-button-empty" : "primary-icon-button"
+        }`}
+      >
+        <Lightbulb size={18} strokeWidth={2.5} />
+        <span className="text-sm font-semibold">提示</span>
+        <span className={`hint-count ${hintsRemaining <= 0 ? "hint-count-zero" : ""}`}>
+          {hintsRemaining}
+        </span>
+      </button>
     </div>
   );
 }
 
 function NumberPad({ onPress, notesMode, numberCounts }: { onPress: (value: number) => void; notesMode: boolean; numberCounts: number[] }) {
   return (
-    <div className={`number-pad grid grid-cols-9 gap-2 rounded-[1.7rem] p-2 shadow-glow ${notesMode ? "number-pad-notes" : ""}`}>
+    <div className={`number-pad grid grid-cols-9 gap-1.5 rounded-[1.8rem] p-3 shadow-glow ${notesMode ? "number-pad-notes" : ""}`}>
       {Array.from({ length: 9 }, (_, index) => index + 1).map((value) => {
         const count = numberCounts[value - 1];
         const isDone = count >= 9;
@@ -826,16 +916,18 @@ function NumberPad({ onPress, notesMode, numberCounts }: { onPress: (value: numb
             type="button"
             onClick={() => onPress(value)}
             disabled={isDone}
-            className={`number-button aspect-square rounded-2xl text-xl font-black shadow-lg transition active:scale-90 ${
+            className={`number-button aspect-square rounded-full text-xl font-black shadow-md transition active:scale-90 ${
               notesMode ? "number-button-notes" : ""
             } ${isDone ? "number-button-done" : ""}`}
           >
             {isDone ? (
-              <Check size={20} strokeWidth={3} />
+              <Check size={22} strokeWidth={3} />
             ) : (
               <span className="flex flex-col items-center leading-none">
                 <span className="number-main">{value}</span>
-                <span className="number-remaining">{remaining}</span>
+                {remaining > 0 ? (
+                  <span className="number-remaining">{remaining}</span>
+                ) : null}
               </span>
             )}
           </button>
