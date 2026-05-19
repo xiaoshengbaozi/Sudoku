@@ -7,7 +7,6 @@ export function SudokuBoard({
   selected,
   selectedValue,
   focusValue,
-  solution,
   mistake,
   assistedCells,
   bursts,
@@ -21,7 +20,6 @@ export function SudokuBoard({
   selected: CellCoord | null;
   selectedValue: number;
   focusValue: number;
-  solution: Board;
   mistake: CellCoord | null;
   assistedCells: CellCoord[];
   bursts: CompletedUnitBurst[];
@@ -44,7 +42,6 @@ export function SudokuBoard({
           const isSameValue = value !== 0 && value === selectedValue;
           const isMistake = mistake?.row === rowIndex && mistake?.col === colIndex;
           const isFocusedValue = focusValue !== 0 && value === focusValue;
-          const isFocusTarget = focusValue !== 0 && value === 0 && solution[rowIndex][colIndex] === focusValue;
           const isAssisted = assistedCells.some((cell) => cell.row === rowIndex && cell.col === colIndex);
           const isBurstCell = bursts.some((burst) =>
             burst.cells.some((cell) => cell.row === rowIndex && cell.col === colIndex),
@@ -67,7 +64,6 @@ export function SudokuBoard({
                 isPeer ? "peer-cell" : "",
                 isSameValue ? "same-value-cell" : "",
                 isFocusedValue ? "focused-value-cell" : "",
-                isFocusTarget ? "focus-target-cell" : "",
                 isAssisted ? "assisted-cell" : "",
                 isBurstCell ? "unit-burst-cell" : "",
                 isSelected && !isNotesModeHighlight ? "selected-cell" : "",

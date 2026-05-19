@@ -54,6 +54,29 @@ export function validateMove(board: Board, row: number, col: number, value: numb
   return isValidPlacement(next, row, col, value);
 }
 
+export function isBoardSolved(board: Board): boolean {
+  for (let row = 0; row < SIZE; row += 1) {
+    for (let col = 0; col < SIZE; col += 1) {
+      const value = board[row][col];
+      if (value === EMPTY || !validateMove(board, row, col, value)) return false;
+    }
+  }
+
+  return true;
+}
+
+export function solveBoard(board: Board): Board | null {
+  if (!isBoardConsistent(board)) return null;
+
+  const next = cloneBoard(board);
+
+  return fillBoard(next, false) ? next : null;
+}
+
+export function hasSolution(board: Board): boolean {
+  return solveBoard(board) !== null;
+}
+
 export function generateSudokuPuzzle(difficulty: Difficulty = "medium"): SudokuPuzzle {
   const solution = createSolvedBoard();
   const puzzle = cloneBoard(solution);
@@ -75,19 +98,31 @@ export function generateSudokuPuzzle(difficulty: Difficulty = "medium"): SudokuP
 
 function createSolvedBoard(): Board {
   const board = createEmptyBoard();
-  fillBoard(board);
+  fillBoard(board, true);
   return board;
 }
 
-function fillBoard(board: Board): boolean {
+function isBoardConsistent(board: Board): boolean {
+  for (let row = 0; row < SIZE; row += 1) {
+    for (let col = 0; col < SIZE; col += 1) {
+      const value = board[row][col];
+      if (value !== EMPTY && !validateMove(board, row, col, value)) return false;
+    }
+  }
+
+  return true;
+}
+
+function fillBoard(board: Board, randomize = false): boolean {
   const empty = findEmptyCell(board);
   if (!empty) return true;
 
   const [row, col] = empty;
-  for (const value of shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9])) {
+  const values = randomize ? shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]) : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  for (const value of values) {
     if (isValidPlacement(board, row, col, value)) {
       board[row][col] = value;
-      if (fillBoard(board)) return true;
+      if (fillBoard(board, randomize)) return true;
       board[row][col] = EMPTY;
     }
   }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import type { Board, Difficulty } from "./sudoku";
-import { generateSudokuPuzzle, validateMove } from "./sudoku";
+import { generateSudokuPuzzle, hasSolution, isBoardSolved, solveBoard, validateMove } from "./sudoku";
 import type { Achievement, AchievementMap, GameStats } from "./storage";
 import { ACHIEVEMENTS, checkAchievements, loadAchievements, loadStats, saveAchievements, saveStats } from "./storage";
 import type { CellCoord, Theme, CompletedUnitBurst } from "./types";
@@ -128,14 +128,7 @@ export function App() {
     return counts;
   }, [board]);
 
-  const checkComplete = useCallback((currentBoard: Board) => {
-    for (let r = 0; r < 9; r += 1) {
-      for (let c = 0; c < 9; c += 1) {
-        if (currentBoard[r][c] !== puzzle.solution[r][c]) return false;
-      }
-    }
-    return true;
-  }, [puzzle.solution]);
+  const checkComplete = useCallback((currentBoard: Board) => isBoardSolved(currentBoard), []);
 
   function startNewGame(nextDifficulty = difficulty) {
     setDifficulty(nextDifficulty);
@@ -180,13 +173,16 @@ export function App() {
     }
     if (!target) return;
 
+    const hintSolution = solveBoard(board);
+    if (!hintSolution) return;
+
     setHintsRemaining((h) => h - 1);
 
     const nextNotes = notes.map((r) => r.map((c) => [...c]));
     nextNotes[target.row][target.col] = [];
 
     const nextBoard = board.map((r) => [...r]);
-    nextBoard[target.row][target.col] = puzzle.solution[target.row][target.col];
+    nextBoard[target.row][target.col] = hintSolution[target.row][target.col];
 
     setNotes(nextNotes);
     setBoard(nextBoard);
@@ -226,9 +222,11 @@ export function App() {
     if (board[row][col] !== 0) return;
 
     const isRuleValid = validateMove(board, row, col, value);
-    const isSolutionValid = puzzle.solution[row][col] === value;
+    const boardWithMove = board.map((line) => [...line]);
+    boardWithMove[row][col] = value;
+    const canStillSolve = isRuleValid && hasSolution(boardWithMove);
 
-    if (!isRuleValid || !isSolutionValid) {
+    if (!canStillSolve) {
       setMistake({ row, col });
       setCombo(0);
       setErrorCount((c) => c + 1);
@@ -244,14 +242,15 @@ export function App() {
     const nextNotes = notes.map((r) => r.map((c) => [...c]));
     nextNotes[row][col] = [];
 
-    const nextBoard = board.map((line) => [...line]);
-    nextBoard[row][col] = value;
+    const nextBoard = boardWithMove;
     const nextEnergy = Math.min(ENERGY_MAX, energy + ENERGY_GAIN);
     const energyReady = nextEnergy >= ENERGY_MAX;
+    const assistSolution = energyReady ? solveBoard(nextBoard) : null;
     const nextAssistedCells = energyReady ? findCertainCells(nextBoard).slice(0, 3) : [];
 
     nextAssistedCells.forEach((cell) => {
-      nextBoard[cell.row][cell.col] = puzzle.solution[cell.row][cell.col];
+      if (!assistSolution) return;
+      nextBoard[cell.row][cell.col] = assistSolution[cell.row][cell.col];
       nextNotes[cell.row][cell.col] = [];
     });
 
@@ -395,7 +394,6 @@ export function App() {
             selected={selected}
             selectedValue={selectedValue}
             focusValue={focusValue}
-            solution={puzzle.solution}
             mistake={mistake}
             assistedCells={assistedCells}
             bursts={bursts}
